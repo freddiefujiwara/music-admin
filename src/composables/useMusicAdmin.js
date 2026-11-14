@@ -131,7 +131,7 @@ export function useMusicAdmin() {
     await refreshArchiveBadges()
   }
 
-  // Start from a #share= link: the token replaces the sign-in gate.
+  // Start from a share link: the token replaces the sign-in gate.
   const initFromHash = async (hash) => {
     const token = parseShareToken(hash)
     if (!token) {

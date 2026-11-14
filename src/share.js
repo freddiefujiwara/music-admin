@@ -1,7 +1,8 @@
 /**
  * Helpers for temporary share sessions (temporary access links).
- * The share token travels in the URL hash fragment (#share=...), which is
- * never sent to servers in HTTP requests or referrer headers.
+ * The share token travels in the URL hash fragment as the bare token
+ * (#<token>), which is never sent to servers in HTTP requests or
+ * referrer headers. The legacy #share=<token> form is still accepted.
  * Ported from the health site's domain/share.js.
  */
 
@@ -17,12 +18,16 @@ export function parseShareToken(hash) {
       return decodeURIComponent(part.slice(eq + 1));
     }
   }
+  // Bare form: the whole fragment is the token (#<token>).
+  if (!fragment.includes("=") && !fragment.includes("&")) {
+    return decodeURIComponent(fragment);
+  }
   return "";
 }
 
-/** Build the URL an agent opens: the app base plus the share fragment. */
+/** Build the URL an agent opens: the app base plus the token fragment. */
 export function buildShareUrl(baseUrl, token) {
-  return `${baseUrl}#share=${encodeURIComponent(token)}`;
+  return `${baseUrl}#${encodeURIComponent(token)}`;
 }
 
 /** Whole seconds until the session expires; null when the date is invalid. */

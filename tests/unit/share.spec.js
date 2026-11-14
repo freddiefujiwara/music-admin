@@ -12,6 +12,9 @@ describe('share helpers', () => {
     expect(parseShareToken('#share=abc123')).toBe('abc123')
     expect(parseShareToken('#x=1&share=t%20k')).toBe('t k')
     expect(parseShareToken('#other=1')).toBe('')
+    expect(parseShareToken('#abc123')).toBe('abc123')
+    expect(parseShareToken('#a%20b')).toBe('a b')
+    expect(parseShareToken('#x=1&y=2')).toBe('')
     expect(parseShareToken('share=plain')).toBe('plain')
     expect(parseShareToken('')).toBe('')
     expect(parseShareToken(null)).toBe('')
@@ -19,7 +22,7 @@ describe('share helpers', () => {
 
   it('builds a share URL on the app base', () => {
     expect(buildShareUrl('https://example.com/app/', 'a b')).toBe(
-      'https://example.com/app/#share=a%20b',
+      'https://example.com/app/#a%20b',
     )
   })
 

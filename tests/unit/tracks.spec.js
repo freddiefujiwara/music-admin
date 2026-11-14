@@ -125,7 +125,7 @@ describe('shareLinkView', () => {
       'https://example.com/app/',
       Date.parse('2026-01-01T00:00:00Z'),
     )
-    expect(view.url).toBe('https://example.com/app/#share=tok')
+    expect(view.url).toBe('https://example.com/app/#tok')
     expect(view.remaining).not.toBe('')
     expect(view.expires).not.toBe('')
   })

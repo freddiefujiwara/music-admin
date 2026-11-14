@@ -284,7 +284,7 @@ describe('App', () => {
     await issue.trigger('click')
     await flushPromises()
     const input = wrapper.find('.share-url-input')
-    expect(input.element.value).toContain('#share=sharetoken123')
+    expect(input.element.value).toContain('#sharetoken123')
     Object.assign(navigator, { clipboard: { writeText: vi.fn(async () => {}) } })
     const copy = wrapper.findAll('button').find((b) => b.text() === 'URLをコピー')
     await copy.trigger('click')
