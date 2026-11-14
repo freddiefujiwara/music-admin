@@ -1,0 +1,64 @@
+# This workflow will do a clean install of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://help.github.com/actions/language-and-framework-guides/using-nodejs-with-github-actions
+
+name: Node.js CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [24.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Run tests
+        run: npm test
+
+      - name: Inject API secret
+        run: sed -i -e 's@<API>@${{ secrets.API }}@g' src/constants/app.js
+
+      - name: Build
+        run: npm run build --if-present
+      - name: Generate OGP image
+        run: |
+          # URL-encoded title: 川口の歌
+          JSON_RESPONSE=$(curl -L -s "https://script.google.com/macros/s/AKfycbzbMAKxkzHlwN8SY7ygJA34xYESMNNdkGNt8vv1XMcZSksgHsUwOxCCdP-wgg6fv7M/exec?t=%E5%B7%9D%E5%8F%A3%E3%81%AE%E6%AD%8C")
+          echo $JSON_RESPONSE | jq -r '.png' | base64 -d > ./dist/ogp.png
+          ls -lh ./dist/ogp.png
+
+      - name: Build staging variant into dist/staging
+        env:
+          VITE_MUSIC_API: "https://script.google.com/macros/s/AKfycbxy4MH-lBmB5DYHk_Gcijqf-lJHV4kt24qKUCq7eH2c99kIYlxPjhMGh8PfvZs1wT6O/exec"
+          VITE_STAGING: "1"
+        run: |
+          npm run build:staging
+          mkdir -p dist/staging
+          cp -r dist-staging/* dist/staging/
+
+      - name: "Deploy to gh-pages 🚀"
+        uses: JamesIves/github-pages-deploy-action@releases/v3
+        if: ${{ matrix.node-version == '24.x' && github.event_name == 'push' }}
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: gh-pages
+          FOLDER: dist
