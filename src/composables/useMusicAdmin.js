@@ -269,18 +269,6 @@ export function useMusicAdmin() {
   const revokeShare = async () =>
     callApi(API_URL, null, { action: 'revoke_share', session_token: sessionToken })
 
-  // The Muse API key (30 days, single live key) is managed
-  // with the owner session only, like the share link; the key
-  // itself never authenticates these calls.
-  const issueClaudeKey = async () =>
-    callApi(API_URL, null, { action: 'issue_claude_key', session_token: sessionToken })
-
-  const revokeClaudeKey = async () =>
-    callApi(API_URL, null, { action: 'revoke_claude_key', session_token: sessionToken })
-
-  const claudeKeyStatus = async () =>
-    callApi(API_URL, null, { action: 'claude_key_status', session_token: sessionToken })
-
   return {
     phase,
     email,
@@ -309,8 +297,5 @@ export function useMusicAdmin() {
     regenerateArticle,
     issueShare,
     revokeShare,
-    issueClaudeKey,
-    revokeClaudeKey,
-    claudeKeyStatus,
   }
 }

@@ -3,7 +3,6 @@ import {
   archiveBadge,
   archiveBadgeLabel,
   archivePreview,
-  claudeKeyView,
   emptyTrack,
   formFromTrack,
   formatDuration,
@@ -127,24 +126,6 @@ describe('shareLinkView', () => {
       Date.parse('2026-01-01T00:00:00Z'),
     )
     expect(view.url).toBe('https://example.com/app/#share=tok')
-    expect(view.remaining).not.toBe('')
-    expect(view.expires).not.toBe('')
-  })
-})
-
-describe('claudeKeyView', () => {
-  it('is inactive without a status or without a live key', () => {
-    expect(claudeKeyView(null, 0)).toEqual({ active: false, remaining: '', expires: '' })
-    expect(claudeKeyView({ active: false }, 0))
-      .toEqual({ active: false, remaining: '', expires: '' })
-  })
-
-  it('labels a live key with its remaining time and expiry', () => {
-    const view = claudeKeyView(
-      { active: true, issued_at: '2026-01-01T00:00:00Z', expires_at: '2026-01-31T00:00:00Z' },
-      Date.parse('2026-01-01T00:00:00Z'),
-    )
-    expect(view.active).toBe(true)
     expect(view.remaining).not.toBe('')
     expect(view.expires).not.toBe('')
   })

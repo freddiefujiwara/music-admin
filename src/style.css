@@ -188,10 +188,6 @@ textarea {
   margin-right: 8px;
 }
 
-.claude-key-input {
-  width: min(560px, 100%);
-  margin-right: 8px;
-}
 
 .builder-tabs {
   display: flex;
