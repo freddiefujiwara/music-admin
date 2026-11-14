@@ -6,7 +6,6 @@ import {
   archiveBadge,
   archiveBadgeLabel,
   archivePreview,
-  claudeKeyView,
   emptyTrack,
   formFromTrack,
   isValidTrackFile,
@@ -297,72 +296,8 @@ const copyShareUrl = async () => {
   }
 }
 
-// --- Muse API key management (owner only, in the share tab) ---
-const claudeKeyStatusRes = ref(null)
-const issuedClaudeKey = ref(null)
-const claudeKeyError = ref('')
-
-const claudeKeyViewState = computed(() => claudeKeyView(claudeKeyStatusRes.value, Date.now()))
-const claudeKeyActive = computed(() => claudeKeyViewState.value.active)
-const claudeKeyRemaining = computed(() => claudeKeyViewState.value.remaining)
-const claudeKeyExpires = computed(() => claudeKeyViewState.value.expires)
-
-const refreshClaudeKeyStatus = async () => {
-  try {
-    const res = await admin.claudeKeyStatus()
-    if (res.ok) {
-      claudeKeyStatusRes.value = res
-    }
-  } catch {
-    // A failed status read leaves the last known state in place.
-  }
-}
-
 const openShare = () => {
   tab.value = 'share'
-  refreshClaudeKeyStatus()
-}
-
-const issueClaudeKey = async () => {
-  claudeKeyError.value = ''
-  try {
-    const res = await admin.issueClaudeKey()
-    if (res.ok) {
-      issuedClaudeKey.value = res
-      claudeKeyStatusRes.value = {
-        active: true,
-        issued_at: res.issued_at,
-        expires_at: res.expires_at,
-      }
-    } else {
-      claudeKeyError.value = res.error || '発行に失敗しました'
-    }
-  } catch {
-    claudeKeyError.value = '発行に失敗しました'
-  }
-}
-
-const revokeClaudeKey = async () => {
-  claudeKeyError.value = ''
-  try {
-    const res = await admin.revokeClaudeKey()
-    if (res.ok) {
-      issuedClaudeKey.value = null
-      claudeKeyStatusRes.value = { active: false }
-    } else {
-      claudeKeyError.value = res.error || '無効化に失敗しました'
-    }
-  } catch {
-    claudeKeyError.value = '無効化に失敗しました'
-  }
-}
-
-const copyClaudeKey = async () => {
-  try {
-    await navigator.clipboard.writeText(issuedClaudeKey.value.claude_key)
-  } catch {
-    claudeKeyError.value = 'コピーに失敗しました'
-  }
 }
 
 const initGoogleSignIn = () => {
@@ -666,35 +601,6 @@ const onLogout = () => {
       </section>
       <template v-else></template>
 
-      <section v-if="phase === 'ready' && tab === 'share' && !isShareSession" class="table-wrap">
-        <h2 class="section-title">Muse 用キー</h2>
-        <p class="meta">
-          Muse が管理APIを使うためのキーです。有効期限は1か月で、新しいキーを発行すると前のキーは無効になります。キーが表示されるのは発行直後の1回だけで、この画面を閉じると再表示できません。
-        </p>
-        <p class="error">{{ claudeKeyError }}</p>
-        <p v-if="claudeKeyActive">
-          <strong>{{ claudeKeyRemaining }}</strong>
-          <span class="meta">（{{ claudeKeyExpires }} まで有効）</span>
-        </p>
-        <p v-else class="meta">有効なキーは発行されていません。</p>
-        <div v-if="issuedClaudeKey">
-          <p>
-            <input class="claude-key-input" type="text" readonly aria-label="Muse 用キー" :value="issuedClaudeKey.claude_key" />
-            <button class="theme-toggle" type="button" @click="copyClaudeKey">キーをコピー</button>
-          </p>
-        </div>
-        <template v-else></template>
-        <p>
-          <button class="theme-toggle" type="button" @click="issueClaudeKey">
-            {{ claudeKeyActive ? '新しいキーを発行し直す' : '1か月間有効なキーを発行' }}
-          </button>
-          <button v-if="claudeKeyActive" class="theme-toggle" type="button" @click="revokeClaudeKey">
-            今すぐ無効化する
-          </button>
-          <template v-else></template>
-        </p>
-      </section>
-      <template v-else></template>
     </main>
   </div>
 </template>

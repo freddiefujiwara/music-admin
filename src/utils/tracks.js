@@ -178,18 +178,3 @@ export function shareLinkView(issued, baseUrl, nowMs) {
     expires: formatShareExpiry(issued.expires_at),
   }
 }
-
-// Display state for the Muse API key section: whether a key
-// is live, with the same remaining/expiry wording as the
-// share link. The status response never carries the key
-// itself, so there is nothing secret to render here.
-export function claudeKeyView(status, nowMs) {
-  if (!status || !status.active) {
-    return { active: false, remaining: '', expires: '' }
-  }
-  return {
-    active: true,
-    remaining: formatShareRemaining(shareSecondsLeft(status.expires_at, nowMs)),
-    expires: formatShareExpiry(status.expires_at),
-  }
-}

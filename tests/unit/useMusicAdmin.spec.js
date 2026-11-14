@@ -57,16 +57,6 @@ const okHandler = (body) => {
     return { ok: true, share_token: 'tok', expires_at: '2026-12-15T00:00:00.000Z' }
   }
   if (body.action === 'revoke_share') return { ok: true, revoked: true }
-  if (body.action === 'issue_claude_key') {
-    return {
-      ok: true, claude_key: 'mk_testkey', issued_at: '2026-11-15T00:00:00.000Z',
-      expires_at: '2026-12-15T00:00:00.000Z', ttl_seconds: 2592000,
-    }
-  }
-  if (body.action === 'revoke_claude_key') return { ok: true, revoked: true }
-  if (body.action === 'claude_key_status') {
-    return { ok: true, active: true, expires_at: '2026-12-15T00:00:00.000Z' }
-  }
   if (body.action === 'regenerate_article') return { ok: true, paragraphs: 42 }
   return { ok: true, row: body.row || 3 }
 }
@@ -328,23 +318,6 @@ describe('useMusicAdmin', () => {
     expect(issued.share_token).toBe('tok')
     const revoked = await admin.revokeShare()
     expect(revoked.revoked).toBe(true)
-  })
-
-  it('issues, checks and revokes the Muse key with the owner session', async () => {
-    const calls = routeFetch(okHandler)
-    const admin = useMusicAdmin()
-    await admin.onCredential(credential({ email: 'owner@example.com' }))
-    const issued = await admin.issueClaudeKey()
-    expect(issued.claude_key).toBe('mk_testkey')
-    const status = await admin.claudeKeyStatus()
-    expect(status.active).toBe(true)
-    const revoked = await admin.revokeClaudeKey()
-    expect(revoked.revoked).toBe(true)
-    const keyCalls = calls.filter((c) => c.action.includes('claude_key'))
-    expect(keyCalls.map((c) => c.action)).toEqual([
-      'issue_claude_key', 'claude_key_status', 'revoke_claude_key',
-    ])
-    expect(keyCalls.every((c) => c.session_token === 'sess-token')).toBe(true)
   })
 
   it('defaults tracks and meta when the response omits them', async () => {
