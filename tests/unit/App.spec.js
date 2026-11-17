@@ -114,7 +114,68 @@ describe('App', () => {
     expect(wrapper.text()).toContain('川口の歌 管理')
     expect(wrapper.text()).toContain('Googleログインが必要です')
     expect(window.google.accounts.id.initialize).toHaveBeenCalled()
-    expect(window.google.accounts.id.renderButton).toHaveBeenCalled()
+    expect(window.google.accounts.id.renderButton).toHaveBeenCalledWith(
+      expect.anything(),
+      { theme: 'outline', size: 'large', text: 'signin_with', shape: 'pill' },
+    )
+  })
+
+  it('shows the boot spinner while the session check runs', async () => {
+    window.location.hash = ''
+    wrapper = mount(App, { attachTo: document.body })
+    expect(wrapper.find('.spinner').exists()).toBe(true)
+    expect(wrapper.text()).toContain('読み込んでいます…')
+    expect(wrapper.text()).not.toContain('Googleログインが必要です')
+    await flushPromises()
+    expect(wrapper.find('.spinner').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Googleログインが必要です')
+  })
+
+  it('does not crash when the GIS script is unavailable', async () => {
+    delete window.google
+    await mountApp()
+    expect(wrapper.text()).toContain('Googleログインが必要です')
+  })
+
+  it('reports when the GIS script never loads', async () => {
+    vi.useFakeTimers()
+    try {
+      delete window.google
+      window.location.hash = ''
+      wrapper = mount(App, { attachTo: document.body })
+      await vi.advanceTimersByTimeAsync(0)
+      expect(wrapper.text()).toContain('Googleログインが必要です')
+      await vi.advanceTimersByTimeAsync(300 * 10)
+      expect(wrapper.text()).toContain(
+        'Googleログインスクリプトの読み込みに失敗しました。広告ブロック等を解除して再読み込みしてください。',
+      )
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('renders the button when the GIS script arrives late', async () => {
+    vi.useFakeTimers()
+    try {
+      delete window.google
+      window.location.hash = ''
+      wrapper = mount(App, { attachTo: document.body })
+      await vi.advanceTimersByTimeAsync(0)
+      await vi.advanceTimersByTimeAsync(600)
+      const initialize = vi.fn()
+      const renderButton = vi.fn()
+      window.google = {
+        accounts: { id: { initialize, renderButton, disableAutoSelect: vi.fn() } },
+      }
+      await vi.advanceTimersByTimeAsync(300)
+      expect(initialize).toHaveBeenCalled()
+      expect(renderButton).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ shape: 'pill' }),
+      )
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('lists tracks with publish state and IA badges after sign-in', async () => {
@@ -312,6 +373,28 @@ describe('App', () => {
     }
     await mountApp('#share=old-tok')
     expect(wrapper.text()).toContain('リンクの有効期限が切れています')
+    expect(wrapper.text()).toContain(
+      'この一時アクセスリンクは無効か、期限切れです。発行者に新しいリンクを依頼してください。',
+    )
+  })
+
+  it('shows the expiry notice at the gate when the session dies mid-use', async () => {
+    await mountApp()
+    await signIn()
+    expect(wrapper.text()).toContain('曲A')
+    handler = (body) => {
+      if (body.action === 'list_tracks') {
+        return { ok: false, status: 401, error: 'session expired or invalid' }
+      }
+      return defaultHandler(body)
+    }
+    const reload = wrapper.findAll('button').find((b) => b.text() === '再読み込み')
+    await reload.trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Googleログインが必要です')
+    expect(wrapper.text()).toContain('ログインの有効期限が切れました。再度ログインしてください。')
+    // The button is rendered again for the fresh gate element.
+    expect(window.google.accounts.id.renderButton.mock.calls.length).toBeGreaterThan(1)
   })
 
   it('logs out back to the gate', async () => {
@@ -337,6 +420,7 @@ describe('App', () => {
     localStorage.setItem('music-admin-session-email', 'owner@example.com')
     await mountApp()
     expect(wrapper.text()).toContain('曲A')
+    expect(wrapper.text()).toContain('owner@example.com でログイン中')
     expect(window.google.accounts.id.initialize).not.toHaveBeenCalled()
   })
 
