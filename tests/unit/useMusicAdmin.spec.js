@@ -67,9 +67,12 @@ afterEach(() => {
 })
 
 describe('useMusicAdmin', () => {
-  it('stays on the gate without a share hash', async () => {
+  it('boots to the gate without a share hash or a saved session', async () => {
     const admin = useMusicAdmin()
+    expect(admin.phase.value).toBe('boot')
     expect(await admin.initFromHash('')).toBe(false)
+    expect(admin.phase.value).toBe('boot')
+    expect(await admin.restoreSession()).toBe(false)
     expect(admin.phase.value).toBe('gate')
   })
 
@@ -99,7 +102,7 @@ describe('useMusicAdmin', () => {
     const admin = useMusicAdmin()
     await admin.onCredential(credential({ email: 'owner@example.com' }))
     expect(admin.phase.value).toBe('gate')
-    expect(admin.gateError.value).toBe('このアカウントでは利用できません')
+    expect(admin.gateError.value).toBe('ログインに失敗しました。もう一度お試しください。')
   })
 
   it('rejects a sign-in when the exchange returns no session token', async () => {
@@ -110,7 +113,35 @@ describe('useMusicAdmin', () => {
     const admin = useMusicAdmin()
     await admin.onCredential(credential({ email: 'owner@example.com' }))
     expect(admin.phase.value).toBe('gate')
-    expect(admin.gateError.value).toBe('このアカウントでは利用できません')
+    expect(admin.gateError.value).toBe('ログインに失敗しました。もう一度お試しください。')
+  })
+
+  it('treats a forbidden error as a rejected account even without a status', async () => {
+    routeFetch(() => ({ ok: false, error: 'forbidden email' }))
+    const admin = useMusicAdmin()
+    await admin.onCredential(credential({ email: 'stranger@example.com' }))
+    expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('このアカウントでは利用できません。')
+  })
+
+  it('shows the generic sign-in failure when verification fails', async () => {
+    routeFetch(() => ({ ok: false, status: 401, error: 'token verification failed' }))
+    const admin = useMusicAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('ログインに失敗しました。もう一度お試しください。')
+  })
+
+  it('returns to the gate with an expiry notice when the session dies after sign-in', async () => {
+    routeFetch((body) => {
+      if (body.action === 'exchange_session') return { ok: true, session_token: 'sess-token' }
+      return { ok: false, status: 401, error: 'session expired or invalid' }
+    })
+    const admin = useMusicAdmin()
+    await admin.onCredential(credential({ email: 'owner@example.com' }))
+    expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('ログインの有効期限が切れました。再度ログインしてください。')
+    expect(localStorage.getItem('music-admin-session-token')).toBeNull()
   })
 
   it('keeps the email empty when the credential carries none', async () => {
@@ -162,7 +193,7 @@ describe('useMusicAdmin', () => {
     const admin = useMusicAdmin()
     await admin.onCredential(credential({ email: 'stranger@example.com' }))
     expect(admin.phase.value).toBe('gate')
-    expect(admin.gateError.value).toBe('このアカウントでは利用できません')
+    expect(admin.gateError.value).toBe('このアカウントでは利用できません。')
   })
 
   it('tolerates an undecodable credential and still asks the server', async () => {
@@ -205,6 +236,7 @@ describe('useMusicAdmin', () => {
     const admin = useMusicAdmin()
     expect(await admin.restoreSession()).toBe(false)
     expect(admin.phase.value).toBe('gate')
+    expect(admin.gateError.value).toBe('ログインの有効期限が切れました。再度ログインしてください。')
     expect(localStorage.getItem('music-admin-session-token')).toBeNull()
   })
 
@@ -220,7 +252,9 @@ describe('useMusicAdmin', () => {
 
   it('returns false from restoreSession when nothing is saved', async () => {
     const admin = useMusicAdmin()
+    expect(admin.phase.value).toBe('boot')
     expect(await admin.restoreSession()).toBe(false)
+    expect(admin.phase.value).toBe('gate')
   })
 
   it('logs out, clearing the saved session and revoking it server-side', async () => {

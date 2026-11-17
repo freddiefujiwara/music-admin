@@ -17,7 +17,7 @@ import {
 // temporary access link authenticates every call, and a
 // share-auth failure moves the page to the expired-link state.
 export function useMusicAdmin() {
-  const phase = ref('gate') // 'gate' | 'ready' | 'share-expired'
+  const phase = ref('boot') // 'boot' | 'gate' | 'ready' | 'share-expired'
   const email = ref('')
   const isShareSession = ref(false)
   const shareExpiresAt = ref('')
@@ -50,9 +50,10 @@ export function useMusicAdmin() {
       phase.value = 'share-expired'
     } else if (isSessionError(res)) {
       // The saved owner session is dead (expired or revoked): drop
-      // it and return to the sign-in gate.
+      // it and return to the sign-in gate, saying why.
       sessionToken = null
       clearSavedSession()
+      gateError.value = 'ログインの有効期限が切れました。再度ログインしてください。'
       phase.value = 'gate'
     } else if (res && res._share) {
       shareExpiresAt.value = res._share.expires_at
@@ -166,7 +167,15 @@ export function useMusicAdmin() {
     }
     if (!res || !res.ok || !res.session_token) {
       phase.value = 'gate'
-      gateError.value = 'このアカウントでは利用できません'
+      // A forbidden account is told it cannot use the page; every
+      // other failure (verification, transport, a response without
+      // a session) is a plain sign-in failure.
+      gateError.value =
+        res &&
+        (res.status === 403 ||
+          (typeof res.error === 'string' && res.error.includes('forbidden')))
+          ? 'このアカウントでは利用できません。'
+          : 'ログインに失敗しました。もう一度お試しください。'
       return
     }
     sessionToken = res.session_token
@@ -184,6 +193,8 @@ export function useMusicAdmin() {
   const restoreSession = async () => {
     const saved = loadSavedSessionToken()
     if (!saved) {
+      // Nothing to restore: the boot check ends at the gate.
+      phase.value = 'gate'
       return false
     }
     sessionToken = saved

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { GOOGLE_CLIENT_ID, archiveUrl } from './constants/app.js'
 import { useMusicAdmin } from './composables/useMusicAdmin.js'
 import {
@@ -300,8 +300,24 @@ const openShare = () => {
   tab.value = 'share'
 }
 
-const initGoogleSignIn = () => {
+// The GIS script loads async, so it may not be there yet when the
+// gate first appears: retry for a few seconds, then tell the user
+// it could not be loaded (an ad blocker is the usual cause).
+const GOOGLE_SCRIPT_RETRY_LIMIT = 10
+const GOOGLE_SCRIPT_RETRY_MS = 300
+let googleScriptTimer = null
+
+const initGoogleSignIn = (attempt = 0) => {
   if (!window.google?.accounts?.id) {
+    if (attempt < GOOGLE_SCRIPT_RETRY_LIMIT) {
+      googleScriptTimer = setTimeout(() => {
+        googleScriptTimer = null
+        initGoogleSignIn(attempt + 1)
+      }, GOOGLE_SCRIPT_RETRY_MS)
+    } else {
+      gateError.value =
+        'Googleログインスクリプトの読み込みに失敗しました。広告ブロック等を解除して再読み込みしてください。'
+    }
     return
   }
   window.google.accounts.id.initialize({
@@ -312,18 +328,36 @@ const initGoogleSignIn = () => {
     theme: 'outline',
     size: 'large',
     text: 'signin_with',
+    shape: 'pill',
   })
 }
+
+onUnmounted(() => {
+  if (googleScriptTimer !== null) {
+    clearTimeout(googleScriptTimer)
+    googleScriptTimer = null
+  }
+})
+
+// The gate's button element is re-created every time the gate
+// becomes visible (the boot check ends, a logout, an expired
+// session), so render the button on each arrival at the gate.
+watch(
+  phase,
+  (next) => {
+    if (next === 'gate') {
+      initGoogleSignIn()
+    }
+  },
+  { flush: 'post' },
+)
 
 onMounted(async () => {
   applyCurrentTheme()
   if (await admin.initFromHash(window.location.hash)) {
     return
   }
-  if (await admin.restoreSession()) {
-    return
-  }
-  window.addEventListener('load', initGoogleSignIn, { once: true })
+  await admin.restoreSession()
 })
 
 const onLogout = () => {
@@ -400,6 +434,12 @@ const onLogout = () => {
       <template v-else></template>
       <div id="status"></div>
 
+      <section v-if="phase === 'boot'" class="table-wrap auth-gate" aria-busy="true">
+        <div class="spinner" aria-hidden="true"></div>
+        <p class="meta">読み込んでいます…</p>
+      </section>
+      <template v-else></template>
+
       <section v-if="phase === 'gate'" class="table-wrap auth-gate">
         <h2 class="section-title">Googleログインが必要です</h2>
         <p class="meta">許可されたアカウントでサインインしてください。</p>
@@ -411,7 +451,7 @@ const onLogout = () => {
       <section v-if="phase === 'share-expired'" class="table-wrap">
         <h2 class="section-title">リンクの有効期限が切れています</h2>
         <p class="meta">
-          この一時アクセスリンクは失効しています。発行者に新しいリンクを依頼してください。
+          この一時アクセスリンクは無効か、期限切れです。発行者に新しいリンクを依頼してください。
         </p>
       </section>
       <template v-else></template>
@@ -425,7 +465,7 @@ const onLogout = () => {
         <template v-else></template>
         <p v-if="shareBanner" class="meta">{{ shareBanner }}</p>
         <template v-else></template>
-        <p v-if="email" class="meta">{{ email }}</p>
+        <p v-if="email" class="meta">{{ email }} でログイン中</p>
         <template v-else></template>
         <div v-if="loading" class="alarm-row">
           <span class="meta">読み込み中…</span>
