@@ -296,7 +296,7 @@ describe('share helper properties', () => {
   it('never reports a negative or fractional seconds-left', () => {
     fc.assert(
       fc.property(
-        fc.oneof(fc.date().map((d) => d.toISOString()), fc.string()),
+        fc.oneof(fc.date({ noInvalidDate: true }).map((d) => d.toISOString()), fc.string()),
         fc.integer({ min: 0, max: 2 ** 45 }),
         (expiresAt, nowMs) => {
           const left = shareSecondsLeft(expiresAt, nowMs)
@@ -336,12 +336,19 @@ describe('share helper properties', () => {
   // documented shape is YYYYMMDD (fast-check found year 0999, whose
   // unpadded year breaks the shape), and issued links expire within
   // 30 days, so real expiries are always contemporary 4-digit years.
+  // noInvalidDate is required: fc.date emits Invalid Dates by default
+  // (~0.1% of draws), and toISOString throws on those before the code
+  // under test is even reached — CI drew one on the first run.
   it('formats an expiry as YYYYMMDD HH:MM or blank', () => {
     fc.assert(
       fc.property(
         fc.oneof(
           fc
-            .date({ min: new Date('1000-01-01T00:00:00Z'), max: new Date('9999-12-31T23:59:59Z') })
+            .date({
+              min: new Date('1000-01-01T00:00:00Z'),
+              max: new Date('9999-12-31T23:59:59Z'),
+              noInvalidDate: true,
+            })
             .map((d) => d.toISOString()),
           fc.constantFrom('', 'not-a-date', '2026-13-45', '2999-01-01T00:00:00.000Z'),
         ),
