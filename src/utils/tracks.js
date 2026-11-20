@@ -25,8 +25,12 @@ export function emptyTrack() {
 }
 
 // Copy a listed track (the API's parsed shape: publishedAt /
-// durationSec) into the edit form's sheet-column shape.
+// durationSec) into the edit form's sheet-column shape. A deformed
+// list entry (null, a primitive, an array) maps to the blank form.
 export function formFromTrack(track) {
+  if (!track || typeof track !== 'object' || Array.isArray(track)) {
+    return emptyTrack()
+  }
   return {
     file: track.file ?? '',
     title: track.title ?? '',
@@ -44,9 +48,16 @@ export function formFromTrack(track) {
 
 // The payload sent to create_track / update_track: numbers as
 // numbers when they parse, blank otherwise; published as a boolean.
-export function trackPayload(form) {
+export function trackPayload(rawForm) {
+  const form =
+    rawForm && typeof rawForm === 'object' && !Array.isArray(rawForm) ? rawForm : {}
   const number = (value) => {
-    if (value === null || value === undefined || String(value).trim() === '') {
+    // Only numbers and numeric strings parse; booleans, arrays and
+    // objects would otherwise coerce (true -> 1, [65] -> 65).
+    if (typeof value !== 'number' && typeof value !== 'string') {
+      return ''
+    }
+    if (String(value).trim() === '') {
       return ''
     }
     const n = Number(value)
@@ -84,6 +95,9 @@ export function formatDuration(value) {
 
 /** The meta line under a track title: date, length, file name. */
 export function trackMeta(track) {
+  if (!track || typeof track !== 'object' || Array.isArray(track)) {
+    return ''
+  }
   const parts = []
   if (track.publishedAt) {
     parts.push(String(track.publishedAt))
@@ -135,7 +149,7 @@ export function archiveBadgeLabel(state) {
 // One-line summary of a publish/unpublish step result, e.g.
 // "シート: OK / IA: スキップ（キー未設定） / 記事: OK".
 export function publishStepsLabel(steps) {
-  if (!steps) {
+  if (!steps || typeof steps !== 'object') {
     return ''
   }
   const label = (value) => {
@@ -169,7 +183,7 @@ export function publishStepsLabel(steps) {
 // The issued-share display values (URL, remaining time, expiry
 // label); all blank before a link is issued.
 export function shareLinkView(issued, baseUrl, nowMs) {
-  if (!issued) {
+  if (!issued || !issued.share_token) {
     return { url: '', remaining: '', expires: '' }
   }
   return {

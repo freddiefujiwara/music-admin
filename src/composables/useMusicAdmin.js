@@ -96,8 +96,18 @@ export function useMusicAdmin() {
         listStatus.value = res.error || '読み込みに失敗しました'
         return res
       }
-      tracks.value = res.tracks || []
-      meta.value = res.meta || {}
+      // A deformed payload (list of the wrong shape, entries that
+      // are not rows, a non-object meta) lands on the sane empty
+      // state instead of breaking the list rendering.
+      tracks.value = Array.isArray(res.tracks)
+        ? res.tracks.filter(
+            (entry) => entry && typeof entry === 'object' && !Array.isArray(entry),
+          )
+        : []
+      meta.value =
+        res.meta && typeof res.meta === 'object' && !Array.isArray(res.meta)
+          ? res.meta
+          : {}
       listStatus.value = `${tracks.value.length}曲`
       return res
     } catch (err) {
@@ -114,6 +124,11 @@ export function useMusicAdmin() {
   const refreshArchiveBadges = async () => {
     const results = {}
     for (const track of tracks.value) {
+      if (!track.file) {
+        // No file, nothing to check; keying a badge by an undefined
+        // file would leak a bogus entry into the badge map.
+        continue
+      }
       try {
         const res = await apiRead({ action: 'check_archive', file: track.file })
         if (res.ok) {

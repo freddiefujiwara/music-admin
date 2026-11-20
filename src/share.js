@@ -14,7 +14,13 @@ export function parseShareToken(hash) {
   for (const part of fragment.split("&")) {
     const eq = part.indexOf("=");
     if (eq > 0 && part.slice(0, eq) === "share") {
-      return decodeURIComponent(part.slice(eq + 1));
+      try {
+        return decodeURIComponent(part.slice(eq + 1));
+      } catch {
+        // A damaged link (truncated copy-paste) is no token at all,
+        // not a boot failure.
+        return "";
+      }
     }
   }
   return "";
