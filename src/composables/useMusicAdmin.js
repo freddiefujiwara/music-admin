@@ -156,8 +156,7 @@ export function useMusicAdmin() {
     shareToken = token
     isShareSession.value = true
     phase.value = 'ready'
-    await loadTracks()
-    await refreshArchiveBadges()
+    await reload()
     return true
   }
 
@@ -197,8 +196,7 @@ export function useMusicAdmin() {
     saveSessionToken(sessionToken)
     saveSessionEmail(email.value)
     phase.value = 'ready'
-    await loadTracks()
-    await refreshArchiveBadges()
+    await reload()
   }
 
   // Restore a saved owner session at boot, without a Google
@@ -215,8 +213,7 @@ export function useMusicAdmin() {
     sessionToken = saved
     email.value = loadSavedSessionEmail()
     phase.value = 'ready'
-    await loadTracks()
-    await refreshArchiveBadges()
+    await reload()
     return phase.value === 'ready'
   }
 
